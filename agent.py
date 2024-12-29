@@ -210,9 +210,6 @@ class RationalAgent( Agent ):
             self.going_back = self.going_back - 1
             self.state.updateStateFromAction(action)
             print(self.going_back)
-            if(self.going_back == -1) and (percept.stench):
-                self.kill = "KILL"
-                print('order given')
             if(self.going_back == -1) and ((self.state.posx + 1, self.state.posy, 'P') in self.pits):
                 self.skipping_pit = 7
             
@@ -240,6 +237,7 @@ class RationalAgent( Agent ):
                     self.kill = "KILLED"
                 else:
                     action = ''
+                    self.kill = "KILL"
                 self.going_back = 3
             self.state.updateStateFromAction(action)
             return action
