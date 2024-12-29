@@ -88,7 +88,31 @@ class RationalAgent( Agent ):
     Your smartest Wumpus hunter brain.
     """ 
 
-    def turn_around_stench(self, i): 
+    def avoid_wall(self, i):
+        if self.avoiding_wall in [0, 1]:
+            action = RIGHT
+        return action
+
+    
+
+    def turn_around_monster(self, i): 
+        if i == 4:
+            action = RIGHT
+        elif i == 3:
+            action = RIGHT
+        elif i == 2: 
+            action = FORWARD
+        elif i == 1:
+            action = LEFT
+        elif i == 0:
+            action = FORWARD
+        elif i == -1:
+            action = LEFT
+        elif i == -2:
+            action = LEFT
+        return action
+
+    def turn_around_pit(self, i): 
         if i == 4:
             action = RIGHT
         elif i == 3:
@@ -123,7 +147,7 @@ class RationalAgent( Agent ):
         return action
     
     def figuring_out_the_pit(self, percept):
-        if percept.breeze:
+        if percept.breeze or percept.stench:
             self.pits.append((self.state.posx + 1, self.state.posy, PIT))
             self.safe_places.append((self.state.posx + 2, self.state.posy - 1))
             return 'THIS'
@@ -132,6 +156,12 @@ class RationalAgent( Agent ):
             self.safe_places.append((self.state.posx + 1, self.state.posy))
             return 'OTHER'
     
+    def figuring_out_the_monster(self, percept):
+        if percept.stench:
+            return 'THIS'
+        else:
+            return 'OTHER'
+   
     def go_back(self, i):
         if i == 4:
             action = LEFT
@@ -150,6 +180,9 @@ class RationalAgent( Agent ):
         self.turning_around = -2
         self.going_back = -1
         self.skipping_pit = -1
+        self.avoiding_wall = -1
+        self.fighting = -3
+        self.kill = "Dontshoot"
         self.safe_places = []
         self.pits = []
         " *** YOUR CODE HERE ***"
@@ -161,34 +194,28 @@ class RationalAgent( Agent ):
         """
         " *** YOUR CODE HERE ***"
         self.state.updateStateFromPercepts(percept, score)
-        
+      
         if self.turning_around > -2 :
-            action = self.turn_around_stench(self.turning_around)
+            action = self.turn_around_pit(self.turning_around)
             self.turning_around = self.turning_around - 1
-            
             if self.turning_around == -2:
-                if percept.breeze:
-                    self.figuring_out_the_pit(percept)
-                    print('PIT FOUND')
-                    print(self.pits)
-                    self.going_back = 4
-                    action = ''
-                elif percept.stench:
-                    action = SHOOT
+                self.figuring_out_the_pit(percept)
+                self.going_back = 4
+                action = ''
             self.state.updateStateFromAction(action)
             return action
 
-        if self.going_back > -1 :
+        if self.going_back > -1:
             action = self.go_back(self.going_back)
             self.going_back = self.going_back - 1
             self.state.updateStateFromAction(action)
-
-            if(self.going_back == -1):
-                if percept.stench:
-                    action = SHOOT
-                    self.state.updateStateFromAction(action)
-                elif((self.state.posx + 1, self.state.posy, 'P') in self.pits):
-                    self.skipping_pit = 7
+            print(self.going_back)
+            if(self.going_back == -1) and (percept.stench):
+                self.kill = "KILL"
+                print('order given')
+            if(self.going_back == -1) and ((self.state.posx + 1, self.state.posy, 'P') in self.pits):
+                self.skipping_pit = 7
+            
             return action
         
         if (self.skipping_pit > -1) :
@@ -197,13 +224,44 @@ class RationalAgent( Agent ):
             print(self.skipping_pit)
             self.state.updateStateFromAction(action)
             return action
+
+        if self.avoiding_wall > -1:
+            action = self.avoid_wall(self.avoiding_wall)
+            self.avoiding_wall = self.avoiding_wall - 1
+            self.state.updateStateFromAction(action)
+            return action
         
-        if percept.breeze or percept.stench:
+        if self.fighting > -3 :
+            action = self.turn_around_monster(self.fighting)
+            self.fighting = self.fighting - 1
+            if self.fighting == -3:
+                if self.figuring_out_the_monster(percept) == 'THIS':
+                    action = SHOOT
+                    self.kill = "KILLED"
+                else:
+                    action = ''
+                self.going_back = 3
+            self.state.updateStateFromAction(action)
+            return action
+        
+        
+
+        if percept.breeze:
             if (self.state.posx + 1, self.state.posy) not in self.safe_places:
                 self.turning_around = 4
                 action = ''
             else:
-                action = 'forward'
+                action = 'forward' 
+        elif percept.stench:
+            if self.kill == "KILL":
+                action = SHOOT
+            else:
+                if self.kill != "KILLED":
+                    self.fighting = 4
+                    action = ''
+        elif percept.bump:
+            self.avoiding_wall = 1
+            action = ''
         else:
             action = FORWARD
         
