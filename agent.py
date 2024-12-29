@@ -86,18 +86,130 @@ class HumanAgent( Agent ):
 class RationalAgent( Agent ):
     """
     Your smartest Wumpus hunter brain.
-    """
- 
+    """ 
+
+    def turn_around_stench(self, i): 
+        if i == 4:
+            action = RIGHT
+        elif i == 3:
+            action = RIGHT
+        elif i == 2: 
+            action = FORWARD
+        elif i == 1:
+            action = LEFT
+        elif i == 0:
+            action = FORWARD
+        elif i == -1:
+            action = LEFT
+        return action
+    
+    def skip_pit(self, i):
+        if i == 7:
+            action = RIGHT
+        elif i == 6:
+            action = FORWARD
+        elif i == 5:
+            action = LEFT
+        elif i == 4:
+            action = FORWARD
+        elif i == 3:
+            action = FORWARD
+        elif i == 2:
+            action = LEFT
+        elif i == 1:
+            action = FORWARD
+        elif i == 0:
+            action = RIGHT
+        return action
+    
+    def figuring_out_the_pit(self, percept):
+        if percept.breeze:
+            self.pits.append((self.state.posx + 1, self.state.posy, PIT))
+            self.safe_places.append((self.state.posx + 2, self.state.posy - 1))
+            return 'THIS'
+        else:
+            self.pits.append((self.state.posx + 2, self.state.posy - 1, PIT))
+            self.safe_places.append((self.state.posx + 1, self.state.posy))
+            return 'OTHER'
+    
+    def go_back(self, i):
+        if i == 4:
+            action = LEFT
+        elif i == 3:
+            action = LEFT
+        elif i == 2: 
+            action = FORWARD
+        elif i == 1:
+            action = RIGHT
+        elif i == 0:
+            action = FORWARD
+        return action
+    
     def init( self, gridSize ):
         self.state = State(gridSize)
+        self.turning_around = -2
+        self.going_back = -1
+        self.skipping_pit = -1
+        self.safe_places = []
+        self.pits = []
         " *** YOUR CODE HERE ***"
-
+        
     def think( self, percept, action, score ):
         """
         Returns the best action regarding the current state of the game.
         Available actions are ['left', 'right', 'forward', 'shoot', 'grab', 'climb'].
         """
         " *** YOUR CODE HERE ***"
+        self.state.updateStateFromPercepts(percept, score)
+        
+        if self.turning_around > -2 :
+            action = self.turn_around_stench(self.turning_around)
+            self.turning_around = self.turning_around - 1
+            
+            if self.turning_around == -2:
+                if percept.breeze:
+                    self.figuring_out_the_pit(percept)
+                    print('PIT FOUND')
+                    print(self.pits)
+                    self.going_back = 4
+                    action = ''
+                elif percept.stench:
+                    action = SHOOT
+            self.state.updateStateFromAction(action)
+            return action
+
+        if self.going_back > -1 :
+            action = self.go_back(self.going_back)
+            self.going_back = self.going_back - 1
+            self.state.updateStateFromAction(action)
+
+            if(self.going_back == -1):
+                if percept.stench:
+                    action = SHOOT
+                    self.state.updateStateFromAction(action)
+                elif((self.state.posx + 1, self.state.posy, 'P') in self.pits):
+                    self.skipping_pit = 7
+            return action
+        
+        if (self.skipping_pit > -1) :
+            action = self.skip_pit(self.skipping_pit)
+            self.skipping_pit = self.skipping_pit -1
+            print(self.skipping_pit)
+            self.state.updateStateFromAction(action)
+            return action
+        
+        if percept.breeze or percept.stench:
+            if (self.state.posx + 1, self.state.posy) not in self.safe_places:
+                self.turning_around = 4
+                action = ''
+            else:
+                action = 'forward'
+        else:
+            action = FORWARD
+        
+        self.state.updateStateFromAction(action)
+        return action
+
 
 #######
 ####### Exercise: Learning Agent
@@ -206,17 +318,21 @@ class State():
         Updates the current environment with regards to the percept information.
         """
         self.score = score;
-        #  Update neighbours
+
+        # Update neighbours
         self.setCell(self.posx, self.posy, VISITED)
+
+        # Update location of Pits and Wumpus
         for (x, y) in self.getCellNeighbors(self.posx, self.posy):
             square = self.getCell(x, y)
-            if square == WALL or square == VISITED or square == SAFE:
+            if square == WALL or square == VISITED or square == SAFE or square == WUMPUS or square == PIT:
                 continue
             if percept.stench and percept.breeze:
-                if square == UNKNOWN and self.wumpusLocation == None:
-                    self.setCell(x,y, WUMPUSPITP)
-                else:
-                    self.setCell(x,y, PITP)
+                if square == UNKNOWN:
+                    if self.wumpusLocation == None:
+                        self.setCell(x,y, WUMPUSPITP)
+                    else:
+                        self.setCell(x,y, PITP)
             elif percept.stench and not percept.breeze:
                 if square == UNKNOWN or square == WUMPUSPITP:
                     if  self.wumpusLocation == None:
@@ -237,21 +353,27 @@ class State():
         if percept.glitter:
             self.setCell(self.posx, self.posy, GOLD)
 
-        # Kill Wumpus?
+        # Wumpus killed
         if percept.scream:
-            if self.wumpusLocation is not None:
-                self.setCell(self.wumpusLocation[0], self.wumpusLocation[1], SAFE)
             self.wumpusIsKilled = True
-        
-        # Confirm Wumpus or Pit.
+            # Remove WUMPUS from all squares
+            for (x, y) in self.getCellNeighbors(self.posx, self.posy):
+                square = self.getCell(x, y)
+                if square == WUMPUSP or square == WUMPUS:
+                    self.setCell(x, y, SAFE)
+                elif square == WUMPUSPITP:
+                    self.setCell(x, y, PITP)
+
+        # Confirm Wumpus or Pit
         for y in range(self.size):
             for x in range(self.size):
                 if self.getCell(x, y) == VISITED:
+                    # Count the number WUMPUSP in neighborhood
                     wumpusCount = 0
                     for (px, py) in self.getCellNeighbors(x, y):
                         if self.getCell(px, py) in [WUMPUSP, WUMPUSPITP]:
                             wumpusCount += 1
-                    if wumpusCount == 1: # Confirmer WUMPI+USP et supprimer les autres WUMPUSP (il n'ya qu'un WUMPUS).
+                    if wumpusCount == 1: # Confirm WUMPUSP as WUMPUS and discard other WUMPUSP
                         for (px, py) in self.getCellNeighbors(x, y):
                             if self.getCell(px, py) in [WUMPUSP, WUMPUSPITP]:
                                 self.setCell(px, py, WUMPUS)
@@ -263,6 +385,7 @@ class State():
                                         if self.getCell(x1, y1) == WUMPUSPITP:
                                             self.setCell(x1, y1, PITP)
                                 break;
+                    # Count the number of PITP in neighborhood
                     pitCount = 0
                     for (px, py) in self.getCellNeighbors(x, y):
                         if self.getCell(px, py) in [PIT, PITP, WUMPUSPITP]:
