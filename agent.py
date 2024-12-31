@@ -206,6 +206,13 @@ class RationalAgent( Agent ):
                 action = FORWARD
         return action
     
+    def isPit(self):
+        if self.directional == 1:
+            return self.state.getCell(self.state.posx + 1, self.state.posy) == PIT
+        elif self.directional == 3:
+            return self.state.getCell(self.state.posx - 1, self.state.posy) == PIT
+
+    
     def avoid_wall(self, i):
         if i == 1:
             action = RIGHT
@@ -258,7 +265,7 @@ class RationalAgent( Agent ):
             action = self.go_back(self.going_back)
             self.going_back = self.going_back - 1
             self.state.updateStateFromAction(action)
-            if(self.going_back == -1) and self.state.getCell(self.state.posx + 1, self.state.posy) == PIT:
+            if(self.going_back == -1) and self.isPit():
                 self.skipping_pit = 7
             
             return action
@@ -290,6 +297,7 @@ class RationalAgent( Agent ):
             return action
 
         if percept.breeze and self.skipping != "pitJustSkipped" and not self.state.canGoForward():
+            self.state.printWorld()
             self.turning_around = 4
             action = ''
         elif percept.stench:
@@ -305,9 +313,9 @@ class RationalAgent( Agent ):
         else:
             action = FORWARD
             self.skipping = ''
+
             self.wall_avoided = False
         self.state.updateStateFromAction(action)
-
         return action
 
 
