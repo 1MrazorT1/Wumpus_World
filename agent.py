@@ -111,18 +111,32 @@ class RationalAgent( Agent ):
         return action
 
     def turn_around_pit(self, i): 
-        if i == 4:
-            action = RIGHT
-        elif i == 3:
-            action = RIGHT
-        elif i == 2: 
-            action = FORWARD
-        elif i == 1:
-            action = LEFT
-        elif i == 0:
-            action = FORWARD
-        elif i == -1:
-            action = LEFT
+        if self.directional == 1:
+            if i == 4:
+                action = RIGHT
+            elif i == 3:
+                action = RIGHT
+            elif i == 2: 
+                action = FORWARD
+            elif i == 1:
+                action = LEFT
+            elif i == 0:
+                action = FORWARD
+            elif i == -1:
+                action = LEFT
+        elif self.directional == 3:
+            if i == 4:
+                action = LEFT
+            elif i == 3:
+                action = LEFT
+            elif i == 2: 
+                action = FORWARD
+            elif i == 1:
+                action = RIGHT
+            elif i == 0:
+                action = FORWARD
+            elif i == -1:
+                action = RIGHT
         return action
     
     def skip_pit(self, i):
@@ -146,11 +160,19 @@ class RationalAgent( Agent ):
         return action
     
     def figuring_out_the_pit(self, percept):
-        if percept.breeze or percept.stench:
-            self.state.setCell(self.state.posx + 1, self.state.posy, PIT)
+        if percept.breeze:
+            if self.directional == 1:
+                self.state.setCell(self.state.posx + 1, self.state.posy, PIT)
+            elif self.directional == 3:
+                self.state.setCell(self.state.posx - 1, self.state.posy, PIT)
+                print('pit added')
+                self.skipping = ''
             return 'THIS'
         else:
-            self.state.setCell(self.state.posx + 2, self.state.posy - 1, PIT)
+            if self.directional == 1:
+                self.state.setCell(self.state.posx + 2, self.state.posy - 1, PIT)
+            elif self.directional == 3:
+                self.state.setCell(self.state.posx - 2, self.state.posy + 1, PIT)
             return 'OTHER'
     
     def figuring_out_the_monster(self, percept):
@@ -160,16 +182,28 @@ class RationalAgent( Agent ):
             return 'OTHER'
    
     def go_back(self, i):
-        if i == 4:
-            action = LEFT
-        elif i == 3:
-            action = LEFT
-        elif i == 2: 
-            action = FORWARD
-        elif i == 1:
-            action = RIGHT
-        elif i == 0:
-            action = FORWARD
+        if self.directional == 1:
+            if i == 4:
+                action = LEFT
+            elif i == 3:
+                action = LEFT
+            elif i == 2: 
+                action = FORWARD
+            elif i == 1:
+                action = RIGHT
+            elif i == 0:
+                action = FORWARD
+        elif self.directional == 3:
+            if i == 4:
+                action = RIGHT
+            elif i == 3:
+                action = RIGHT
+            elif i == 2: 
+                action = FORWARD
+            elif i == 1:
+                action = LEFT
+            elif i == 0:
+                action = FORWARD
         return action
     
     def avoid_wall(self, i):
@@ -180,7 +214,10 @@ class RationalAgent( Agent ):
         elif i == -1:
             action = RIGHT
             self.wall_avoided = True
-            self.directional = 3
+            if self.directional == 1:
+                self.directional = 3
+            elif self.directional == 3:
+                self.directional = 1
         return action
     
     def init( self, gridSize ):
@@ -270,6 +307,7 @@ class RationalAgent( Agent ):
             self.skipping = ''
             self.wall_avoided = False
         self.state.updateStateFromAction(action)
+
         return action
 
 
