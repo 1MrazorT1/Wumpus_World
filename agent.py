@@ -18,6 +18,9 @@ import random
 import copy
 import sys
 import utils
+import numpy as np
+from utils import Counter
+from utils import flipCoin
 
 class Agent:
     """
@@ -285,16 +288,119 @@ class RationalAgent( Agent ):
 #######
 ####### Exercise: Learning Agent
 #######
+
 class LearningAgent( Agent ):
     """
     Your smartest Wumpus hunter brain.
     """
     isLearningAgent = True
-    
+    weights = None
+    epsilon = 0.9
+
     def init( self, gridSize ):
 
         self.state = State(gridSize)
         " *** YOUR CODE HERE ***"
+        self.actions = [RIGHT, LEFT, FORWARD, CLIMB, SHOOT, GRAB]
+        self.actionMap = {RIGHT : 0, LEFT : 1, FORWARD : 2, CLIMB : 3, SHOOT : 4, GRAB : 5}
+        self.dimActions = len(self.actions)
+        self.maxSteps = 100
+        self.steps = 0
+        self.isStarted = False
+        LearningAgent.epsilon = max(0.1, LearningAgent.epsilon * LearningAgent.epsilon)
+        self.discountFactor = 0.5
+        self.learningRate = 0.2
+        self.previousFeatures = Counter()
+        self.cell = '?'
+        '''stench, breeze, glitter, bump, scream, is gold grabbed, direction,
+        visited '''
+        
+        if LearningAgent.weights is None:
+            LearningAgent.weights = np.zeros((self.dimActions, 9))
+        
+
+    def extract_features(self, percept, score, visited):
+        out = Counter()
+        out['stench'] = int(percept.stench)
+        out['breeze'] = int(percept.breeze)
+        out['glitter'] = int(percept.glitter)
+        out['bump'] = int(percept.bump)
+        out['scream'] = int(percept.scream)
+        out['goldIsGrabbed'] = int(self.state.goldIsGrabbed)
+        out['direction'] = self.state.direction
+        out['visited'] = 0 if self.cell != VISITED else 1
+        out['safe'] = 0 if self.cell != SAFE and self.cell != VISITED else 1
+        return out
+
+    def get_qvalue(self, action, features):
+        if action == 'None' or action == 'wait' or len(features) == 0:
+            return 0
+        indexAction = self.actionMap[action]
+        F = [features[f] for f in features]
+        return np.dot(LearningAgent.weights[indexAction], F)
+
+    def get_reward(self, features, action):
+        reward = 0
+        
+
+  
+        if features['goldIsGrabbed'] == 1 and action == 'grab':
+            reward += 1000
+        if features['goldIsGrabbed'] == 0 and action == 'grab':
+            reward -=1000
+        if features['glitter'] == 1:
+            reward += 500
+        if features['scream'] == 1:
+            reward += 500
+
+        if action == 'shoot':
+            if features['scream'] == 1:
+                reward += 50
+            else:
+                reward -=50
+
+        if action == 'forward':
+            if features['bump'] == 1:
+                reward -= 50
+            elif features['breeze'] == 1 and features['stench'] == 1:
+                reward -= 100
+            elif features['breeze'] == 1 or features['stench'] == 1:
+                reward -=50
+       
+        if features['visited'] == 1:
+            reward -=50
+        if features['safe'] == 1:
+            reward += 20
+        
+        if action == 'climb' and self.state.isGoal():
+            reward += 500
+        '''
+        if action in self.actions:
+            reward -=1
+'''
+
+        
+
+        return np.clip(reward, -1000, 1000)
+    
+    def get_best_action(self, features):
+        qValueMap = {a : self.get_qvalue(a, features) for a in self.actions}
+        max_qvalue = max(qValueMap.values())
+        max_keys = [key for key, value in qValueMap.items() if value == max_qvalue]
+        bestAction = random.choice(max_keys)
+        return bestAction
+
+    def update(self, reward, action, currentFeatures, previousFeatures):
+        F = [currentFeatures[f] for f in currentFeatures]
+        F1 = [previousFeatures[f] for f in previousFeatures]
+        if action != 'None' and action != 'wait':
+            qValueMap = {a : self.get_qvalue(a, F) for a in self.actions}
+            bestQvalue = max(qValueMap.values())
+            difference = reward + (self.discountFactor * bestQvalue) - self.get_qvalue(action, F1)
+            actionIndex = self.actionMap[action]
+            for j in range(len(F)):
+                LearningAgent.weights[actionIndex][j] += self.learningRate * difference * F[j]
+
 
     def think( self, percept, action, score, isTraining ):
         """
@@ -302,7 +408,46 @@ class LearningAgent( Agent ):
         Available actions are ['left', 'right', 'forward', 'shoot', 'grab', 'climb'].
         """
         " *** YOUR CODE HERE ***"
+        posx = self.state.posx
+        posy = self.state.posy
+        self.cell = self.state.getCell(posx,posy)
+        print("CELLULE",self.state.getCell(posx,posy))
+        visited = 0
+        if self.state.getCell(posx, posy) == VISITED:
+            visited = 1
+        self.state.updateStateFromPercepts(percept, score)
+       # self.state.printWorld()
+        
+      #  print(LearningAgent.weights)
+        print("last action", action)
+        print("position : ", posx, posy, self.state.getCell(posx,posy))
+        print("directoin : ", self.state.direction)
+        features = self.extract_features(percept, score, visited)
+       # print(features)
+        bestAction = self.get_best_action(features)
+        
+        if not isTraining:
+            choosenAction = self.get_best_action(features)
+            print("DKJZDHKKDHDZK")
+            print(LearningAgent.weights)
+            self.state.updateStateFromAction(choosenAction)
+            print(choosenAction)
+    
+        else:
 
+            if flipCoin(LearningAgent.epsilon):
+                choosenAction = random.choice(self.actions)
+            else: 
+                choosenAction = self.get_best_action(features)    
+                #update weights
+                reward = self.get_reward(features, action)
+                print("REWARD", reward)
+                self.update(reward, action, features, self.previousFeatures)
+                self.previousFeatures = features.copy()
+                print(self.previousFeatures)
+            
+            self.state.updateStateFromAction(choosenAction)
+        return choosenAction
 #######
 ####### Exercise: Environment
 #######
