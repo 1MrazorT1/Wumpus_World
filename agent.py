@@ -93,8 +93,6 @@ class RationalAgent( Agent ):
             action = RIGHT
         return action
 
-    
-
     def turn_around_monster(self, i): 
         if i == 4:
             action = RIGHT
@@ -149,12 +147,10 @@ class RationalAgent( Agent ):
     
     def figuring_out_the_pit(self, percept):
         if percept.breeze or percept.stench:
-            self.pits.append((self.state.posx + 1, self.state.posy, PIT))
-            self.safe_places.append((self.state.posx + 2, self.state.posy - 1))
+            self.state.setCell(self.state.posx + 1, self.state.posy, PIT)
             return 'THIS'
         else:
-            self.pits.append((self.state.posx + 2, self.state.posy - 1, PIT))
-            self.safe_places.append((self.state.posx + 1, self.state.posy))
+            self.state.setCell(self.state.posx + 2, self.state.posy - 1, PIT)
             return 'OTHER'
     
     def figuring_out_the_monster(self, percept):
@@ -182,7 +178,9 @@ class RationalAgent( Agent ):
         elif i == 0:
             action = FORWARD
         elif i == -1:
-            action = LEFT
+            action = RIGHT
+            self.wall_avoided = True
+            self.directional = 3
         return action
     
     def init( self, gridSize ):
@@ -191,13 +189,16 @@ class RationalAgent( Agent ):
         self.going_back = -1
         self.skipping_pit = -1
         self.avoiding_wall = -2
+        self.directional = 1
+        self.wall_avoided = False
         self.fighting = -3
         self.skipping = ""
         self.kill = "Dontshoot"
-        self.safe_places = []
-        self.pits = []
         " *** YOUR CODE HERE ***"
         
+    def isNextToWall(self):
+        return (self.state.posx == self.state.size - 2 or self.state.posy == self.state.size - 2) and (self.wall_avoided == False)
+    
     def think( self, percept, action, score ):
         """
         Returns the best action regarding the current state of the game.
@@ -220,8 +221,7 @@ class RationalAgent( Agent ):
             action = self.go_back(self.going_back)
             self.going_back = self.going_back - 1
             self.state.updateStateFromAction(action)
-            print(self.going_back)
-            if(self.going_back == -1) and ((self.state.posx + 1, self.state.posy, 'P') in self.pits):
+            if(self.going_back == -1) and self.state.getCell(self.state.posx + 1, self.state.posy) == PIT:
                 self.skipping_pit = 7
             
             return action
@@ -229,7 +229,6 @@ class RationalAgent( Agent ):
         if self.skipping_pit > -1 :
             action = self.skip_pit(self.skipping_pit)
             self.skipping_pit = self.skipping_pit -1
-            print(self.skipping_pit)
             self.state.updateStateFromAction(action)
             return action
 
@@ -253,12 +252,9 @@ class RationalAgent( Agent ):
             self.state.updateStateFromAction(action)
             return action
 
-        if percept.breeze and self.skipping != "pitJustSkipped":
-            if (self.state.posx + 1, self.state.posy) not in self.safe_places:
-                self.turning_around = 4
-                action = ''
-            else:
-                action = 'forward' 
+        if percept.breeze and self.skipping != "pitJustSkipped" and not self.state.canGoForward():
+            self.turning_around = 4
+            action = ''
         elif percept.stench:
             if self.kill == "KILL":
                 action = SHOOT
@@ -266,18 +262,13 @@ class RationalAgent( Agent ):
                 if self.kill != "KILLED":
                     self.fighting = 4
                     action = ''
-        elif percept.bump:
-            print('bumped')
+        elif self.isNextToWall() :
             self.avoiding_wall = 1
             action = ''
         else:
             action = FORWARD
             self.skipping = ''
-            if percept.bump:
-                print('bumped')
-                self.avoiding_wall = 1
-                action = ''
-        
+            self.wall_avoided = False
         self.state.updateStateFromAction(action)
         return action
 
