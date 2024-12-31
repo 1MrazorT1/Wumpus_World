@@ -144,6 +144,7 @@ class RationalAgent( Agent ):
             action = FORWARD
         elif i == 0:
             action = RIGHT
+            self.skipping = "pitJustSkipped"
         return action
     
     def figuring_out_the_pit(self, percept):
@@ -175,13 +176,23 @@ class RationalAgent( Agent ):
             action = FORWARD
         return action
     
+    def avoid_wall(self, i):
+        if i == 1:
+            action = RIGHT
+        elif i == 0:
+            action = FORWARD
+        elif i == -1:
+            action = LEFT
+        return action
+    
     def init( self, gridSize ):
         self.state = State(gridSize)
         self.turning_around = -2
         self.going_back = -1
         self.skipping_pit = -1
-        self.avoiding_wall = -1
+        self.avoiding_wall = -2
         self.fighting = -3
+        self.skipping = ""
         self.kill = "Dontshoot"
         self.safe_places = []
         self.pits = []
@@ -215,14 +226,14 @@ class RationalAgent( Agent ):
             
             return action
         
-        if (self.skipping_pit > -1) :
+        if self.skipping_pit > -1 :
             action = self.skip_pit(self.skipping_pit)
             self.skipping_pit = self.skipping_pit -1
             print(self.skipping_pit)
             self.state.updateStateFromAction(action)
             return action
 
-        if self.avoiding_wall > -1:
+        if self.avoiding_wall > -2:
             action = self.avoid_wall(self.avoiding_wall)
             self.avoiding_wall = self.avoiding_wall - 1
             self.state.updateStateFromAction(action)
@@ -241,10 +252,8 @@ class RationalAgent( Agent ):
                 self.going_back = 3
             self.state.updateStateFromAction(action)
             return action
-        
-        
 
-        if percept.breeze:
+        if percept.breeze and self.skipping != "pitJustSkipped":
             if (self.state.posx + 1, self.state.posy) not in self.safe_places:
                 self.turning_around = 4
                 action = ''
@@ -258,10 +267,16 @@ class RationalAgent( Agent ):
                     self.fighting = 4
                     action = ''
         elif percept.bump:
+            print('bumped')
             self.avoiding_wall = 1
             action = ''
         else:
             action = FORWARD
+            self.skipping = ''
+            if percept.bump:
+                print('bumped')
+                self.avoiding_wall = 1
+                action = ''
         
         self.state.updateStateFromAction(action)
         return action
