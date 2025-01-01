@@ -94,20 +94,32 @@ class RationalAgent( Agent ):
         return action
 
     def turn_around_monster(self, i): 
-        if i == 4:
-            action = RIGHT
-        elif i == 3:
-            action = RIGHT
-        elif i == 2: 
-            action = FORWARD
-        elif i == 1:
-            action = LEFT
-        elif i == 0:
-            action = FORWARD
-        elif i == -1:
-            action = LEFT
-        elif i == -2:
-            action = LEFT
+        if self.directional == 1:
+            if i == 4:
+                action = RIGHT
+            elif i == 3:
+                action = RIGHT
+            elif i == 2: 
+                action = FORWARD
+            elif i == 1:
+                action = LEFT
+            elif i == 0:
+                action = FORWARD
+            elif i == -1:
+                action = LEFT
+        elif self.directional == 3:
+            if i == 4:
+                action = LEFT
+            elif i == 3:
+                action = LEFT
+            elif i == 2: 
+                action = FORWARD
+            elif i == 1:
+                action = RIGHT
+            elif i == 0:
+                action = FORWARD
+            elif i == -1:
+                action = RIGHT
         return action
 
     def turn_around_pit(self, i): 
@@ -163,16 +175,19 @@ class RationalAgent( Agent ):
         if percept.breeze:
             if self.directional == 1:
                 self.state.setCell(self.state.posx + 1, self.state.posy, PIT)
+                self.state.setCell(self.state.posx + 2, self.state.posy - 1, VISITED)
             elif self.directional == 3:
                 self.state.setCell(self.state.posx - 1, self.state.posy, PIT)
-                print('pit added')
+                self.state.setCell(self.state.posx - 2, self.state.posy - 1, VISITED)
                 self.skipping = ''
             return 'THIS'
         else:
             if self.directional == 1:
                 self.state.setCell(self.state.posx + 2, self.state.posy - 1, PIT)
+                self.state.setCell(self.state.posx + 1, self.state.posy, VISITED)
             elif self.directional == 3:
-                self.state.setCell(self.state.posx - 2, self.state.posy + 1, PIT)
+                self.state.setCell(self.state.posx - 2, self.state.posy - 1, PIT)
+                self.state.setCell(self.state.posx - 1, self.state.posy, VISITED)
             return 'OTHER'
     
     def figuring_out_the_monster(self, percept):
@@ -211,20 +226,32 @@ class RationalAgent( Agent ):
             return self.state.getCell(self.state.posx + 1, self.state.posy) == PIT
         elif self.directional == 3:
             return self.state.getCell(self.state.posx - 1, self.state.posy) == PIT
-
     
     def avoid_wall(self, i):
-        if i == 1:
-            action = RIGHT
-        elif i == 0:
-            action = FORWARD
-        elif i == -1:
-            action = RIGHT
-            self.wall_avoided = True
-            if self.directional == 1:
-                self.directional = 3
-            elif self.directional == 3:
-                self.directional = 1
+        if self.directional == 1:
+            if i == 1:
+                action = RIGHT
+            elif i == 0:
+                action = FORWARD
+            elif i == -1:
+                action = RIGHT
+                self.wall_avoided = True
+                if self.directional == 1:
+                    self.directional = 3
+                elif self.directional == 3:
+                    self.directional = 1
+        elif self.directional == 3:
+            if i == 1:
+                action = LEFT
+            elif i == 0:
+                action = FORWARD
+            elif i == -1:
+                action = LEFT
+                self.wall_avoided = True
+                if self.directional == 1:
+                    self.directional = 3
+                elif self.directional == 3:
+                    self.directional = 1
         return action
     
     def init( self, gridSize ):
@@ -241,7 +268,7 @@ class RationalAgent( Agent ):
         " *** YOUR CODE HERE ***"
         
     def isNextToWall(self):
-        return (self.state.posx == self.state.size - 2 or self.state.posy == self.state.size - 2) and (self.wall_avoided == False)
+        return ((self.state.posx == self.state.size - 2 or self.state.posy == self.state.size - 2) or ((self.state.posx == 1) and self.directional == 3)) and (self.wall_avoided == False)
     
     def think( self, percept, action, score ):
         """
@@ -250,6 +277,11 @@ class RationalAgent( Agent ):
         """
         " *** YOUR CODE HERE ***"
         self.state.updateStateFromPercepts(percept, score)
+
+        if percept.glitter:
+            action = GRAB
+            self.state.updateStateFromAction(action)
+            return action
       
         if self.turning_around > -2 :
             action = self.turn_around_pit(self.turning_around)
@@ -282,39 +314,57 @@ class RationalAgent( Agent ):
             self.state.updateStateFromAction(action)
             return action
         
-        if self.fighting > -3 :
-            action = self.turn_around_monster(self.fighting)
-            self.fighting = self.fighting - 1
-            if self.fighting == -3:
-                if self.figuring_out_the_monster(percept) == 'THIS':
-                    action = SHOOT
-                    self.kill = "KILLED"
-                else:
-                    action = ''
-                    self.kill = "KILL"
-                self.going_back = 3
+        #if self.fighting > -3 :
+            #action = self.turn_around_monster(self.fighting)
+            #self.fighting = self.fighting - 1
+            #if self.fighting == -3:
+            #    if self.figuring_out_the_monster(percept) == 'THIS':
+            #        action = SHOOT
+            #        self.kill = "KILLED"
+            #    else:
+            #        action = ''
+            #        self.kill = "KILL"
+            #    self.going_back = 3
+            #self.state.updateStateFromAction(action)
+            #return action
+
+        if self.fighting > 0:
+            if self.fighting == 2:
+                action = LEFT
+                self.fighting = self.fighting - 1
+            elif self.fighting == 1:
+                action = SHOOT
+                self.fighting = self.fighting - 1
             self.state.updateStateFromAction(action)
             return action
 
         if percept.breeze and self.skipping != "pitJustSkipped" and not self.state.canGoForward():
-            self.state.printWorld()
             self.turning_around = 4
             action = ''
         elif percept.stench:
-            if self.kill == "KILL":
+            #if self.kill == "KILL":
+            #    action = SHOOT
+            #else:
+            #    if self.kill != "KILLED":
+            #        self.fighting = 4
+            #        action = ''
+            if self.state.getCell(self.state.posx - 1, self.state.posy) == "W":
                 action = SHOOT
-            else:
-                if self.kill != "KILLED":
-                    self.fighting = 4
-                    action = ''
+            elif self.state.getCell(self.state.posx, self.state.posy + 1) == "W":
+                self.fighting = 2
+                action = ''
+            
+             
         elif self.isNextToWall() :
             self.avoiding_wall = 1
             action = ''
+        elif percept.glitter:
+            action = GRAB
         else:
             action = FORWARD
             self.skipping = ''
-
             self.wall_avoided = False
+        self.state.printWorld()
         self.state.updateStateFromAction(action)
         return action
 
