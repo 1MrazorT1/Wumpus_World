@@ -329,12 +329,27 @@ class RationalAgent( Agent ):
             #return action
 
         if self.fighting > 0:
-            if self.fighting == 2:
-                action = LEFT
-                self.fighting = self.fighting - 1
-            elif self.fighting == 1:
-                action = SHOOT
-                self.fighting = self.fighting - 1
+            if self.directional == 3:
+                if self.fighting == 2:
+                    action = LEFT
+                    self.fighting = self.fighting - 1
+                elif self.fighting == 1:
+                    action = SHOOT
+                    self.fighting = self.fighting - 1
+            elif self.directional == 1:
+                if self.fighting == 2:
+                    action = RIGHT
+                    self.fighting = self.fighting - 1
+                elif self.fighting == 1:
+                    action = SHOOT
+                    self.fighting = self.fighting - 1
+            self.state.updateStateFromAction(action)
+            return action
+
+        if self.isPit():
+            print("skipping")
+            self.skipping_pit = 7
+            action = ''
             self.state.updateStateFromAction(action)
             return action
 
@@ -353,8 +368,6 @@ class RationalAgent( Agent ):
             elif self.state.getCell(self.state.posx, self.state.posy + 1) == "W":
                 self.fighting = 2
                 action = ''
-            
-             
         elif self.isNextToWall() :
             self.avoiding_wall = 1
             action = ''
@@ -364,7 +377,6 @@ class RationalAgent( Agent ):
             action = FORWARD
             self.skipping = ''
             self.wall_avoided = False
-        self.state.printWorld()
         self.state.updateStateFromAction(action)
         return action
 
